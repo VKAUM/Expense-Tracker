@@ -1,0 +1,153 @@
+package demo2;
+
+import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.text.DecimalFormat;
+import java.util.HashMap;
+import java.util.Map;
+
+public class ExpenseTrackerGUI extends JFrame {
+    private DefaultTableModel tableModel;
+    private JTable expenseTable;
+    private JComboBox<String> categoryComboBox;
+    private JTextField amountField;
+    private JTextField descriptionField;
+
+    private Map<String, Double> categoryTotals = new HashMap<>();
+    private double overallTotal = 0;
+
+    public ExpenseTrackerGUI() {
+        setTitle("Expense Tracker");
+        setSize(500, 400);
+        setDefaultCloseOperation(EXIT_ON_CLOSE);
+
+        tableModel = new DefaultTableModel();
+        tableModel.addColumn("Category");
+        tableModel.addColumn("Amount");
+        tableModel.addColumn("Description");
+
+        expenseTable = new JTable(tableModel);
+
+        JScrollPane scrollPane = new JScrollPane(expenseTable);
+
+        JPanel inputPanel = new JPanel();
+        inputPanel.setLayout(new FlowLayout());
+
+        categoryComboBox = new JComboBox<>(new String[]{"Groceries", "Shopping", "Entertainment", "Utilities", "Medical", "Transfers", "Transport"});
+        amountField = new JTextField(10);
+        descriptionField = new JTextField(20);
+        JButton addButton = new JButton("Add Expense");
+        JButton deleteButton = new JButton("Delete Expense");
+        JButton viewButton = new JButton("View Expenses");
+        JButton exitButton = new JButton("Exit");
+
+        addButton.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                addExpense();
+            }
+        });
+
+        deleteButton.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                deleteExpense();
+            }
+        });
+
+        viewButton.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                viewExpenses();
+            }
+        });
+
+        exitButton.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                System.exit(0);
+            }
+        });
+
+        inputPanel.add(new JLabel("Category:"));
+        inputPanel.add(categoryComboBox);
+        inputPanel.add(new JLabel("Amount:"));
+        inputPanel.add(amountField);
+        inputPanel.add(new JLabel("Description:"));
+        inputPanel.add(descriptionField);
+        inputPanel.add(addButton);
+        inputPanel.add(deleteButton);
+        inputPanel.add(viewButton);
+        inputPanel.add(exitButton);
+
+        setLayout(new BorderLayout());
+        add(scrollPane, BorderLayout.CENTER);
+        add(inputPanel, BorderLayout.SOUTH);
+    }
+
+    private void addExpense() {
+        String category = (String) categoryComboBox.getSelectedItem();
+        String amountStr = amountField.getText();
+        String description = descriptionField.getText();
+
+        if (amountStr.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Amount is required.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        try {
+            double amount = Double.parseDouble(amountStr);
+
+            // Update category total
+            categoryTotals.put(category, categoryTotals.getOrDefault(category, 0.0) + amount);
+
+            // Update overall total
+            overallTotal += amount;
+
+            tableModel.addRow(new Object[]{category, amount, description});
+            amountField.setText("");
+            descriptionField.setText("");
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(this, "Invalid Amount. Please enter a valid number.", "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void deleteExpense() {
+        int selectedRow = expenseTable.getSelectedRow();
+        if (selectedRow >= 0) {
+            String category = (String) tableModel.getValueAt(selectedRow, 0);
+            double amount = (Double) tableModel.getValueAt(selectedRow, 1);
+
+            // Update category total
+            categoryTotals.put(category, categoryTotals.get(category) - amount);
+
+            // Update overall total
+            overallTotal -= amount;
+
+            tableModel.removeRow(selectedRow);
+        } else {
+            JOptionPane.showMessageDialog(this, "Select an expense to delete.", "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void viewExpenses() {
+        StringBuilder expensesText = new StringBuilder();
+        for (int row = 0; row < tableModel.getRowCount(); row++) {
+            String category = (String) tableModel.getValueAt(row, 0);
+            double amount = (Double) tableModel.getValueAt(row, 1);
+            String description = (String) tableModel.getValueAt(row, 2);
+            expensesText.append("Category: ").append(category).append(", Amount: ").append(amount).append(", Description: ").append(description).append("\n");
+        }
+        for (Map.Entry<String, Double> entry : categoryTotals.entrySet()) {
+            expensesText.append("Total in ").append(entry.getKey()).append(": $").append(new DecimalFormat("#0.00").format(entry.getValue())).append("\n");
+        }
+        expensesText.append("Overall Total: $").append(new DecimalFormat("#0.00").format(overallTotal)).append("\n");
+        JOptionPane.showMessageDialog(this, expensesText.toString(), "Expenses", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> {
+            ExpenseTrackerGUI app = new ExpenseTrackerGUI();
+            app.setVisible(true);
+        });
+    }
+}

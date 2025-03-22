@@ -1,0 +1,191 @@
+	package demo2;
+	import java.sql.*;
+	import java.util.HashMap;
+	import java.util.Map;
+	import java.util.Scanner;
+	
+	public class ExpenseTracker {
+	    private static Connection connection;
+	    private static Map<String, Double> categoryTotals = new HashMap<>();
+	
+	    public static void main(String[] args) {
+	        try {
+	            connection = DriverManager.getConnection("jdbc:mysql://localhost/exp", "root", "Dvkbrothers_685");
+	
+	            createExpenseTable(); // Create the table if it doesn't exist
+	
+	            Scanner scanner = new Scanner(System.in);
+	
+	            while (true) { 
+	                System.out.println("\nExpense Tracker Menu:");
+	                System.out.println("1. Add an Expense");
+	                System.out.println("2. View Expenses");
+	                System.out.println("3. Delete an Expense");
+	                System.out.println("4. Exit");
+	                System.out.print("Select an option (1/2/3/4): ");
+	
+	                int choice = scanner.nextInt();
+	                scanner.nextLine(); // Consume the newline character
+	
+	                switch (choice) {
+	                    case 1:
+	                        addExpense(scanner);
+	                        break;
+	                    case 2:
+	                        viewExpenses();
+	                        break;
+	                    case 3:
+	                        deleteExpense(scanner);
+	                        break;
+	                    case 4:
+	                        System.out.println("Exiting Expense Tracker.");
+	                        scanner.close();
+	                        connection.close();
+	                        System.exit(0);
+	                    default:
+	                        System.out.println("Invalid option. Please select 1, 2, 3, or 4.");
+	                }
+	            }
+	        } catch (SQLException e) {
+	            e.printStackTrace();
+	        }
+	    }
+	
+	    private static void createExpenseTable() {
+	        try (Statement statement = connection.createStatement()) {
+	            statement.executeUpdate("CREATE TABLE IF NOT EXISTS expenses (id INT AUTO_INCREMENT PRIMARY KEY, description VARCHAR(255), amount DECIMAL(10, 2), category VARCHAR(50))");
+	        } catch (SQLException e) {
+	            e.printStackTrace();
+	        }
+	    }
+	
+	    private static void addExpense(Scanner scanner) {
+	        System.out.print("Enter expense description: ");
+	        String description = scanner.nextLine();
+	
+	        System.out.print("Enter expense amount: ₹");
+	        double amount = scanner.nextDouble();
+	        scanner.nextLine(); // Consume the newline character
+	
+	        System.out.println("Select an expense category:");
+	        System.out.println("1. Food");
+	        System.out.println("2. Transportation");
+	        System.out.println("3. Utilities");
+	        System.out.println("4. Entertainment");
+	        System.out.println("5. Shopping");
+	        System.out.println("6. Transfers");
+	        System.out.println("7. Medical");
+	        System.out.println("8. Other");
+	
+	        int categoryChoice = scanner.nextInt();
+	        scanner.nextLine(); // Consume the newline character
+	
+	        String category;
+	        switch (categoryChoice) {
+	            case 1:
+	                category = "Food";
+	                break;
+	            case 2:
+	                category = "Transportation";
+	                break;
+	            case 3:
+	                category = "Utilities";
+	                break;
+	            case 4:
+	                category = "Entertainment";
+	                break;
+	            case 5:
+	                category = "Shopping";
+	                break;
+	            case 6:
+	                category = "Transfers";
+	                break;
+	            case 7:
+	                category = "Medical";
+	                break;
+	            case 8:
+	                category = "Other";
+	                break;
+	            default:
+	                category = "Other";
+	                break;
+	        }
+	
+	        if (categoryTotals.containsKey(category)) {
+	            // If the category already exists in the categoryTotals map, add the new amount to the existing total
+	            double totalAmount = categoryTotals.get(category);
+	            totalAmount += amount;
+	            categoryTotals.put(category, totalAmount);
+	        } else {
+	            // If the category doesn't exist, add it to the map with the current amount
+	            categoryTotals.put(category, amount);
+	        }
+	
+	        try (PreparedStatement preparedStatement = connection.prepareStatement(
+	                "INSERT INTO expenses (description, amount, category) VALUES (?, ?, ?)")) {
+	            preparedStatement.setString(1, description);
+	            preparedStatement.setDouble(2, amount);
+	            preparedStatement.setString(3, category);
+	            preparedStatement.executeUpdate();
+	            System.out.println("Expense added successfully!");
+	        } catch (SQLException e) {
+	            e.printStackTrace();
+	        }
+	    }
+	
+	    private static void viewExpenses() {
+	        double overallTotal = 0.0; // Initialize the overall total to 0
+	
+	        try (PreparedStatement preparedStatement = connection.prepareStatement("SELECT * FROM expenses");
+	             ResultSet resultSet = preparedStatement.executeQuery()) {
+	            if (!resultSet.isBeforeFirst()) {
+	                System.out.println("No expenses to display.");
+	            } else {
+	                System.out.println("\nExpense List:");
+	                while (resultSet.next()) {
+	                    int id = resultSet.getInt("id");
+	                    String description = resultSet.getString("description");
+	                    double amount = resultSet.getDouble("amount");
+	                    String category = resultSet.getString("category");
+	                    overallTotal += amount; // Add the expense amount to the overall total
+	                    System.out.println("ID: " + id + ", Description: " + description + ", Amount: $" + amount + ", Category: " + category);
+	                }
+	            }
+	        } catch (SQLException e) {
+	            e.printStackTrace();
+	        }
+	
+	        
+	
+	        // Display total amounts for each category
+	        System.out.println("\nCategory Totals:");
+	        for (Map.Entry<String, Double> entry : categoryTotals.entrySet()) {
+	            String category = entry.getKey();
+	            double totalAmount = entry.getValue();
+	            System.out.println("Category: " + category + ", Total Amount: $" + totalAmount);
+	        }
+	     // Display overall total
+	        System.out.println("\nOverall Total Amount: $" + overallTotal);
+	    }
+	
+	
+	    private static void deleteExpense(Scanner scanner) {
+	        System.out.print("Enter the ID of the expense to delete: ");
+	        int expenseId = scanner.nextInt();
+	        scanner.nextLine(); // Consume the newline character
+	
+	        try (PreparedStatement preparedStatement = connection.prepareStatement(
+	                "DELETE FROM expenses WHERE id = ?")) {
+	            preparedStatement.setInt(1, expenseId);
+	            int rowCount = preparedStatement.executeUpdate();
+	
+	            if (rowCount > 0) {
+	                System.out.println("Expense with ID " + expenseId + " deleted successfully.");
+	            } else {
+	                System.out.println("Expense with ID " + expenseId + " not found.");
+	            }
+	        } catch (SQLException e) {
+	            e.printStackTrace();
+	        }
+	    }
+	}
